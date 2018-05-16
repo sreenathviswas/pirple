@@ -1,10 +1,26 @@
 
 var http = require('http');
+var https = require('https');
 var url = require('url');
 var stringDecoder = require('string_decoder').StringDecoder;
 var config = require('./config');
+var fs = require('fs');
+var data = require('./lib/data');
 
-var server = http.createServer(function (req, res) {
+var httpsServerOptions = {
+    'key': fs.readFileSync('./https/key.pem'),
+    'cert': fs.readFileSync('./https/cert.pem')
+}
+
+var httpsServer = https.createServer(httpsServerOptions, function (req, res) {
+    unifiedServer(req, res);
+});
+
+var httpServer = http.createServer(function (req, res) {
+    unifiedServer(req, res);
+});
+
+var unifiedServer = function (req, res) {
     var parsedUrl = url.parse(req.url, true);
     var path = parsedUrl.pathname;
     var trimmedPath = path.replace(/^\/+|\/+$/g, '');
@@ -40,16 +56,20 @@ var server = http.createServer(function (req, res) {
             console.log("Payload", buffer);
         });
     });
+}
+
+httpServer.listen(config.httpPort, function () {
+    console.log('Server listening on port ' + config.httpPort + ' on ' + config.envName + ' mode');
 });
 
-server.listen(config.port, function () {
-    console.log('Server listening on port ' + config.port + ' on ' + config.envName + ' mode');
+httpsServer.listen(config.httpsPort, function () {
+    console.log('Server listening on port ' + config.httpsPort + ' on ' + config.envName + ' mode');
 });
 
 var handler = {};
 
-handler.sample = function (data, callback) {
-    callback(201, { 'name': 'Sample handler' });
+handler.ping = function (data, callback) {
+    callback(200);
 };
 
 handler.notFound = function (data, callback) {
@@ -57,5 +77,5 @@ handler.notFound = function (data, callback) {
 }
 
 var router = {
-    'sample': handler.sample
+    'ping': handler.ping
 };
