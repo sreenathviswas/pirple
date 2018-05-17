@@ -3,9 +3,11 @@ var http = require('http');
 var https = require('https');
 var url = require('url');
 var stringDecoder = require('string_decoder').StringDecoder;
-var config = require('./config');
+var config = require('./lib/config');
 var fs = require('fs');
 var data = require('./lib/data');
+var helper = require('./lib/helper');
+var handlers = require('./lib/handlers');
 
 var httpsServerOptions = {
     'key': fs.readFileSync('./https/key.pem'),
@@ -24,7 +26,7 @@ var unifiedServer = function (req, res) {
     var parsedUrl = url.parse(req.url, true);
     var path = parsedUrl.pathname;
     var trimmedPath = path.replace(/^\/+|\/+$/g, '');
-    var method = req.method.toUpperCase();
+    var method = req.method.toLowerCase();
     var queryString = parsedUrl.query;
     var headers = req.headers;
 
@@ -40,7 +42,13 @@ var unifiedServer = function (req, res) {
 
         var chosenHandler = typeof (router[trimmedPath]) !== 'undefined' ? router[trimmedPath] : handler.notFound;
 
-        var data = {};
+        var data = {
+            'path': trimmedPath,
+            'queryString': queryString,
+            'method': method,
+            'header': headers,
+            'payload': helper.parseJSONToObject(buffer)
+        };
         chosenHandler(data, function (statusCode, payload) {
             statusCode = typeof (statusCode) == 'number' ? statusCode : 200;
             payload = typeof (payload) == 'object' ? payload : {};
@@ -51,9 +59,9 @@ var unifiedServer = function (req, res) {
             res.writeHead(statusCode);
             res.end(payloadString);
 
-            console.log("Request recied on path : ", trimmedPath, ' with method ', method, 'with query string ', queryString);
-            console.log("Headers", headers);
-            console.log("Payload", buffer);
+            // console.log("Request recied on path : ", trimmedPath, ' with method ', method, 'with query string ', queryString);
+            // console.log("Headers", headers);
+            // console.log("Payload", buffer);
         });
     });
 }
@@ -66,16 +74,7 @@ httpsServer.listen(config.httpsPort, function () {
     console.log('Server listening on port ' + config.httpsPort + ' on ' + config.envName + ' mode');
 });
 
-var handler = {};
-
-handler.ping = function (data, callback) {
-    callback(200);
-};
-
-handler.notFound = function (data, callback) {
-    callback(404);
-}
-
 var router = {
-    'ping': handler.ping
+    'ping': handlers.ping,
+    'user': handlers.user
 };
